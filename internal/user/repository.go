@@ -3,8 +3,9 @@ package user
 import "github.com/poofik33/db-technopark/internal/models"
 
 type Repository interface {
-	InsertInto(user *models.User) error
-	GetByNickname(nickname string) (*models.User, error)
-	GetByEmail(email string) (*models.User, error)
-	Update(user *models.User) error
+	InsertInto(*models.User) error
+	GetByNickname(string) (*models.User, error)
+	GetByEmail(string) (*models.User, error)
+	GetUsersByForum(string, uint64, string, bool) ([]*models.User, error)
+	Update(*models.User) error
 }
