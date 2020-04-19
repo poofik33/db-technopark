@@ -160,7 +160,7 @@ func (th *ThreadHandler) ThreadVote() echo.HandlerFunc {
 
 		returnThread, err := th.threadUsecase.Vote(slugOrID, vReq)
 		if err != nil {
-			if err == tools.ErrThreadDoesntExists {
+			if err == tools.ErrThreadDoesntExists || err == tools.ErrUserDoesntExists {
 				return c.JSON(http.StatusNotFound, tools.ErrorResponce{
 					Message: err.Error(),
 				})

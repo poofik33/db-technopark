@@ -159,8 +159,12 @@ func (tUC *ThreadUsecase) Update(slugOrID string, thread *models.Thread) (*model
 		return nil, err
 	}
 
-	t.About = thread.About
-	t.Title = thread.Title
+	if thread.About != "" {
+		t.About = thread.About
+	}
+	if thread.Title != "" {
+		t.Title = thread.Title
+	}
 
 	if err = tUC.threadRepo.Update(t); err != nil {
 		return nil, err
@@ -192,7 +196,7 @@ func (tUC *ThreadUsecase) Vote(slugOrID string, v *models.Vote) (*models.Thread,
 		return nil, err
 	}
 
-	_, err = tUC.userRepo.GetByNickname(t.Author)
+	_, err = tUC.userRepo.GetByNickname(v.Nickname)
 	if err != nil {
 		if err == tools.ErrDoesntExists {
 			return nil, tools.ErrUserDoesntExists

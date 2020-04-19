@@ -10,4 +10,5 @@ type Repository interface {
 	DeleteAllPost() error
 	DeleteAllThread() error
 	DeleteAllUser() error
+	DeleteAllVotes() error
 }

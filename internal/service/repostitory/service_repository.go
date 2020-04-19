@@ -74,3 +74,10 @@ func (sr *ServiceRepository) DeleteAllUser() error {
 	}
 	return nil
 }
+
+func (sr *ServiceRepository) DeleteAllVotes() error {
+	if _, err := sr.db.Exec("DELETE FROM votes"); err != nil {
+		return err
+	}
+	return nil
+}

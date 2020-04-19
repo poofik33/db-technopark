@@ -35,9 +35,10 @@ func (su *ServiceUsecase) GetStatus() (*models.Status, error) {
 }
 
 func (su *ServiceUsecase) DeleteAll() error {
-	err := su.serviceRepo.DeleteAllForum()
+	err := su.serviceRepo.DeleteAllVotes()
 	err = su.serviceRepo.DeleteAllPost()
 	err = su.serviceRepo.DeleteAllThread()
+	err = su.serviceRepo.DeleteAllForum()
 	err = su.serviceRepo.DeleteAllUser()
 
 	if err != nil {
