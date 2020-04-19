@@ -88,6 +88,7 @@ func (pUC *PostUsecase) GetPostDetails(id uint64, related []string) (*models.Pos
 
 			f.ThreadsCount = threadCount
 			f.PostsCount = postCount
+			returnPost.Forum = f
 		}
 	}
 
@@ -103,7 +104,9 @@ func (pUC *PostUsecase) UpdatePost(p *models.Post) (*models.Post, error) {
 
 		return nil, err
 	}
-
+	if p.Message == "" || p.Message == updPost.Message {
+		return updPost, nil
+	}
 	updPost.Message = p.Message
 	updPost.IsEdited = true
 
