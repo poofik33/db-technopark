@@ -1,0 +1,7 @@
+#golang files
+.DS_store
+.idea/
+
+#testing files
+**/report.html
+**/tech-db-forum
