@@ -17,7 +17,7 @@ func NewServiceRepository(db *sql.DB) service.Repository {
 
 func (sr *ServiceRepository) GetCountForum() (uint64, error) {
 	var count uint64
-	if err := sr.db.QueryRow("SELECT * from forums").Scan(&count); err != nil {
+	if err := sr.db.QueryRow("SELECT count(*) from forums").Scan(&count); err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -25,7 +25,7 @@ func (sr *ServiceRepository) GetCountForum() (uint64, error) {
 
 func (sr *ServiceRepository) GetCountPost() (uint64, error) {
 	var count uint64
-	if err := sr.db.QueryRow("SELECT * from posts").Scan(&count); err != nil {
+	if err := sr.db.QueryRow("SELECT count(*) from posts").Scan(&count); err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -33,7 +33,7 @@ func (sr *ServiceRepository) GetCountPost() (uint64, error) {
 
 func (sr *ServiceRepository) GetCountThread() (uint64, error) {
 	var count uint64
-	if err := sr.db.QueryRow("SELECT * from threads").Scan(&count); err != nil {
+	if err := sr.db.QueryRow("SELECT count(*) from threads").Scan(&count); err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -41,7 +41,7 @@ func (sr *ServiceRepository) GetCountThread() (uint64, error) {
 
 func (sr *ServiceRepository) GetCountUser() (uint64, error) {
 	var count uint64
-	if err := sr.db.QueryRow("SELECT * from users").Scan(&count); err != nil {
+	if err := sr.db.QueryRow("SELECT count(*) from users").Scan(&count); err != nil {
 		return 0, err
 	}
 	return count, nil
