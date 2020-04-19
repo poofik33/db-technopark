@@ -16,7 +16,7 @@ type UserHandler struct {
 
 func NewUserHandler(e *echo.Echo, uuc user.Usecase) *UserHandler {
 	uh := &UserHandler{
-		userUC:uuc,
+		userUC: uuc,
 	}
 
 	e.POST("/user/:nickname/create", uh.CreateUser())
@@ -28,9 +28,9 @@ func NewUserHandler(e *echo.Echo, uuc user.Usecase) *UserHandler {
 
 func (uh *UserHandler) CreateUser() echo.HandlerFunc {
 	type createUserRequset struct {
-		Email string `json:"email" binding:"required" validate:"email"`
+		Email    string `json:"email" binding:"required" validate:"email"`
 		Fullname string `json:"fullname" binding:"required"`
-		About string `json:"about"`
+		About    string `json:"about"`
 	}
 
 	return func(c echo.Context) error {
@@ -47,24 +47,25 @@ func (uh *UserHandler) CreateUser() echo.HandlerFunc {
 
 		nickname := c.Param("nickname")
 
-		u :=  &models.User{
+		u := &models.User{
 			Email:    req.Email,
 			Fullname: req.Fullname,
 			About:    req.About,
 		}
 
-		returnUser, err := uh.userUC.AddUser(nickname, u)
-		if err != nil && returnUser != nil {
-			return c.JSON(http.StatusConflict, []*models.User{returnUser,})
-		}
-
+		returnUsers, err := uh.userUC.AddUser(nickname, u)
 		if err != nil {
+			if err == tools.ErrUserExistWith {
+				return c.JSON(http.StatusConflict, returnUsers)
+			}
+
 			logrus.Error(fmt.Errorf("Request error %s", err))
-			return c.JSON(http.StatusBadRequest,
-				tools.ErrorResponce{err.Error()})
+			return c.JSON(http.StatusBadRequest, tools.ErrorResponce{
+				Message: err.Error(),
+			})
 		}
 
-		return c.JSON(http.StatusCreated, returnUser)
+		return c.JSON(http.StatusCreated, returnUsers[0])
 	}
 }
 
@@ -88,9 +89,9 @@ func (uh *UserHandler) GetProfile() echo.HandlerFunc {
 
 func (uh *UserHandler) UpdateProfile() echo.HandlerFunc {
 	type updateUserRequset struct {
-		Email string `json:"email" binding:"required" validate:"email"`
+		Email    string `json:"email" binding:"required" validate:"email"`
 		Fullname string `json:"fullname" binding:"required"`
-		About string `json:"about"`
+		About    string `json:"about"`
 	}
 
 	return func(c echo.Context) error {
@@ -107,7 +108,7 @@ func (uh *UserHandler) UpdateProfile() echo.HandlerFunc {
 
 		nickname := c.Param("nickname")
 
-		u :=  &models.User{
+		u := &models.User{
 			Email:    req.Email,
 			Fullname: req.Fullname,
 			About:    req.About,
@@ -115,17 +116,15 @@ func (uh *UserHandler) UpdateProfile() echo.HandlerFunc {
 
 		err := uh.userUC.Update(nickname, u)
 		if err != nil {
-			if err == tools.ErrExistWithEmail {
+			if err == tools.ErrUserExistWith {
 				return c.JSON(http.StatusConflict, tools.ErrorResponce{err.Error()})
 			}
-			if err == tools.ErrDoesntExists {
-				return c.JSON(http.StatusConflict, tools.ErrorResponce{err.Error()})
+			if err == tools.ErrUserDoesntExists {
+				return c.JSON(http.StatusNotFound, tools.ErrorResponce{err.Error()})
 			}
 			logrus.Error(fmt.Errorf("Request error %s", err))
 			return c.JSON(http.StatusBadRequest, tools.ErrorResponce{err.Error()})
 		}
-
-
 
 		return c.JSON(http.StatusOK, u)
 	}

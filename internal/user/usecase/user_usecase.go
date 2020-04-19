@@ -1,7 +1,6 @@
 package usecase
 
 import (
-	"errors"
 	"github.com/poofik33/db-technopark/internal/models"
 	"github.com/poofik33/db-technopark/internal/tools"
 	"github.com/poofik33/db-technopark/internal/user"
@@ -17,17 +16,27 @@ func NewUserUsecase(ur user.Repository) user.Usecase {
 	}
 }
 
-func (uu *UserUsecase) AddUser(nickname string, user *models.User) (*models.User, error) {
-	u, err := uu.ur.GetByNickname(nickname)
+func (uu *UserUsecase) AddUser(nickname string, user *models.User) ([]*models.User, error) {
+	u1, err := uu.ur.GetByNickname(nickname)
 	if err != nil && err != tools.ErrDoesntExists {
 		return nil, err
 	}
-	u, err = uu.ur.GetByEmail(user.Email)
-	if err != nil  && err != tools.ErrDoesntExists {
+	u2, err := uu.ur.GetByEmail(user.Email)
+	if err != nil && err != tools.ErrDoesntExists {
 		return nil, err
 	}
-	if u != nil {
-		return u, errors.New("Exists")
+
+	if u1 != nil || u2 != nil {
+		returnUsers := []*models.User{}
+		if u1 != nil {
+			returnUsers = append(returnUsers, u1)
+			if u2 != nil && u1.Nickname != u2.Nickname {
+				returnUsers = append(returnUsers, u2)
+			}
+		} else if u2 != nil {
+			returnUsers = append(returnUsers, u2)
+		}
+		return returnUsers, tools.ErrUserExistWith
 	}
 
 	user.SetNickname(nickname)
@@ -35,7 +44,7 @@ func (uu *UserUsecase) AddUser(nickname string, user *models.User) (*models.User
 		return nil, err
 	}
 
-	return user, nil
+	return []*models.User{user}, nil
 }
 
 func (uu *UserUsecase) GetByNickname(nickname string) (*models.User, error) {
@@ -50,18 +59,18 @@ func (uu *UserUsecase) GetByNickname(nickname string) (*models.User, error) {
 func (uu *UserUsecase) Update(nickname string, user *models.User) error {
 	u, err := uu.ur.GetByNickname(nickname)
 	if err != nil {
+		if err == tools.ErrDoesntExists {
+			return tools.ErrUserDoesntExists
+		}
 		return err
-	}
-	if u == nil {
-		return errors.New("Doesn't Exists")
 	}
 
 	newEmailCheckUser, err := uu.ur.GetByEmail(user.Email)
-	if err != nil && newEmailCheckUser == nil{
+	if err != nil && err != tools.ErrDoesntExists {
 		return err
 	}
 	if err != tools.ErrDoesntExists && newEmailCheckUser.Nickname != u.Nickname {
-		return tools.ErrExistWithEmail
+		return tools.ErrUserExistWith
 	}
 
 	user.SetNickname(nickname)
