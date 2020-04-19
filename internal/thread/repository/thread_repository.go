@@ -55,6 +55,21 @@ func (tr *ThreadRepository) GetBySlug(slug string) (*models.Thread, error) {
 	return t, nil
 }
 
+func (tr *ThreadRepository) GetByID(id uint64) (*models.Thread, error) {
+	t := &models.Thread{}
+	if err := tr.db.QueryRow("SELECT id, author, created, forum, message, "+
+		"coalesce (slug, ''), title WHERE id = $1", id).
+		Scan(&t.ID, &t.Author, &t.CreationDate, &t.Forum, &t.About, &t.Slug, &t.Title); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, tools.ErrDoesntExists
+		}
+
+		return nil, err
+	}
+
+	return t, nil
+}
+
 func (tr *ThreadRepository) GetByForumSlug(
 	slug string, limit uint64, since string, desc bool) ([]*models.Thread, error) {
 	returnThreads := []*models.Thread{}
@@ -99,4 +114,13 @@ func (tr *ThreadRepository) GetByForumSlug(
 	}
 
 	return returnThreads, nil
+}
+
+func (tr *ThreadRepository) Update(t *models.Thread) error {
+	if _, err := tr.db.Exec("UPDATE threads SET message = $2, title = $3 WHERE id = $1",
+		t.ID, t.About, t.Title); err != nil {
+		return err
+	}
+
+	return nil
 }

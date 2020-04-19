@@ -11,5 +11,4 @@ type Repository interface {
 	GetByForumSlug(string, uint64, string, bool) ([]*models.Thread, error)
 	GetCountByForumSlug(string) (uint64, error)
 	Update(*models.Thread) error
-	Vote(int) error
 }

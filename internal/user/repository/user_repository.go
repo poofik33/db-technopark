@@ -70,8 +70,7 @@ func (ur *UserRepository) GetUsersByForum(
 
 	queryString := "SELECT nickname, email, fullname, about FROM users " +
 		"JOIN posts AS p ON (p.author = users.nickname) " +
-		"JOIN threads AS t ON (t.id = p.thread) " +
-		"WHERE t.forum = $1"
+		"WHERE p.forum = $1"
 	groupbyString := " GROUP BY nickname ORDER BY lower(nickname)"
 	if desc {
 		groupbyString += " DESC"
