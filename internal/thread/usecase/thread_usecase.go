@@ -86,12 +86,25 @@ func (tUC *ThreadUsecase) CreatePosts(slugOrID string, posts []*models.Post) ([]
 	}
 	for _, p := range posts {
 		if p.ParentID != 0 {
-			if _, err := tUC.postRepo.GetByID(p.ParentID); err != nil {
+			pp, err := tUC.postRepo.GetByID(p.ParentID)
+			if err != nil {
 				if err == tools.ErrDoesntExists {
 					return nil, tools.ErrParentPostDoesntExists
 				}
 			}
+			if pp.ThreadID != t.ID {
+				return nil, tools.ErrPostIncorrectThreadID
+			}
 		}
+
+		if _, err := tUC.userRepo.GetByNickname(p.Author); err != nil {
+			if err == tools.ErrDoesntExists {
+				return nil, tools.ErrUserDoesntExists
+			}
+
+			return nil, err
+		}
+
 		p.ThreadID = t.ID
 		p.Forum = t.Forum
 	}
@@ -177,6 +190,13 @@ func (tUC *ThreadUsecase) Vote(slugOrID string, v *models.Vote) (*models.Thread,
 		}
 
 		return nil, err
+	}
+
+	_, err = tUC.userRepo.GetByNickname(t.Author)
+	if err != nil {
+		if err == tools.ErrDoesntExists {
+			return nil, tools.ErrUserDoesntExists
+		}
 	}
 
 	v.ThreadID = t.ID

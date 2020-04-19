@@ -22,7 +22,7 @@ func NewThreadHandler(e *echo.Echo, tUC thread.Usecase) *ThreadHandler {
 
 	e.POST("thread/:slug_or_id/create", th.CreatePost())
 	e.POST("thread/:slug_or_id/details", th.UpdateThread())
-	e.POST("thread/:slug_od_id/details", th.ThreadVote())
+	e.POST("thread/:slug_or_id/vote", th.ThreadVote())
 	e.GET("thread/:slug_or_id/details", th.GetThreadDetails())
 	e.GET("thread/:slug_or_id/posts", th.GetThreadPosts())
 
@@ -61,12 +61,12 @@ func (th *ThreadHandler) CreatePost() echo.HandlerFunc {
 
 		returnPosts, err := th.threadUsecase.CreatePosts(slugOrID, posts)
 		if err != nil {
-			if err == tools.ErrThreadDoesntExists {
+			if err == tools.ErrThreadDoesntExists || err == tools.ErrUserDoesntExists {
 				return c.JSON(http.StatusNotFound, tools.ErrorResponce{
 					Message: err.Error(),
 				})
 			}
-			if err == tools.ErrParentPostDoesntExists {
+			if err == tools.ErrParentPostDoesntExists || err == tools.ErrPostIncorrectThreadID {
 				return c.JSON(http.StatusConflict, tools.ErrorResponce{
 					Message: err.Error(),
 				})
@@ -178,9 +178,26 @@ func (th *ThreadHandler) ThreadVote() echo.HandlerFunc {
 func (th *ThreadHandler) GetThreadPosts() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		slugOrID := c.Param("slug_or_id")
+		limit := uint64(0)
+		since := uint64(0)
+		var err error
+		if l := c.QueryParam("limit"); l != "" {
+			limit, err = strconv.ParseUint(l, 10, 64)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, tools.ErrorResponce{
+					Message: err.Error(),
+				})
+			}
+		}
+		if s := c.QueryParam("since"); s != "" {
+			since, err = strconv.ParseUint(s, 10, 64)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, tools.ErrorResponce{
+					Message: err.Error(),
+				})
+			}
+		}
 
-		limit, err := strconv.ParseUint(c.QueryParam("limit"), 10, 64)
-		since, err := strconv.ParseUint(c.QueryParam("since"), 10, 64)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, tools.ErrorResponce{
 				Message: err.Error(),
@@ -189,7 +206,7 @@ func (th *ThreadHandler) GetThreadPosts() echo.HandlerFunc {
 
 		sort := c.QueryParam("sort")
 		desc := false
-		if descVal := c.QueryParam("desc"); descVal != "" {
+		if descVal := c.QueryParam("desc"); descVal == "true" {
 			desc = true
 		}
 

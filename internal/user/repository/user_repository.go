@@ -68,10 +68,16 @@ func (ur *UserRepository) GetUsersByForum(
 	slug string, limit uint64, since string, desc bool) ([]*models.User, error) {
 	returnUsers := []*models.User{}
 
-	queryString := "SELECT nickname, email, fullname, about FROM users " +
-		"JOIN posts AS p ON (p.author = users.nickname) " +
-		"WHERE p.forum = $1"
-	groupbyString := " GROUP BY nickname ORDER BY lower(nickname)"
+	queryString := "SELECT u.nickname, u.email, u.fullname, u.about FROM users AS u " +
+		"WHERE u.id IN (SELECT uu.id FROM users AS uu " +
+		"JOIN posts AS p ON (p.author = uu.id) " +
+		"JOIN forums AS f ON (f.id = p.forum) " +
+		"WHERE lower(f.slug) = lower($1) " +
+		"UNION SELECT uuu.id FROM users as uuu " +
+		"JOIN threads AS t ON (t.author = uuu.id) " +
+		"JOIN forums AS ff ON (ff.id = t.forum) " +
+		"WHERE lower(ff.slug) = lower($1))"
+	groupbyString := " ORDER BY lower(u.nickname)"
 	if desc {
 		groupbyString += " DESC"
 	}
@@ -83,7 +89,11 @@ func (ur *UserRepository) GetUsersByForum(
 	var rows *sql.Rows
 	var err error
 	if since != "" {
-		queryString += " AND lower(nickname) > lower($2)"
+		if desc {
+			queryString += " AND lower(u.nickname) < lower($2)"
+		} else {
+			queryString += " AND lower(u.nickname) > lower($2)"
+		}
 		rows, err = ur.db.Query(queryString+groupbyString, slug, since)
 	} else {
 		rows, err = ur.db.Query(queryString+groupbyString, slug)

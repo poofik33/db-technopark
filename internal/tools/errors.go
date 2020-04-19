@@ -12,4 +12,5 @@ var (
 	ErrParentPostDoesntExists = errors.New("Post with this parent id doesn't exists")
 	ErrThreadDoesntExists     = errors.New("Thread with this id doesn't exists")
 	ErrIncorrectSlug          = errors.New("Slug is incorrect")
+	ErrPostIncorrectThreadID  = errors.New("Post have parent in other thread")
 )

@@ -197,16 +197,20 @@ func (fh *ForumHandler) GetForumUsers() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		slug := c.Param("slug")
 
-		limit, err := strconv.ParseUint(c.QueryParam("limit"), 10, 64)
-		since := c.QueryParam("since")
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, tools.ErrorResponce{
-				Message: err.Error(),
-			})
+		limit := uint64(0)
+		var err error
+		if l := c.QueryParam("limit"); l != "" {
+			limit, err = strconv.ParseUint(l, 10, 64)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, tools.ErrorResponce{
+					Message: err.Error(),
+				})
+			}
 		}
+		since := c.QueryParam("since")
 
 		desc := false
-		if descVal := c.QueryParam("desc"); descVal != "" {
+		if descVal := c.QueryParam("desc"); descVal == "true" {
 			desc = true
 		}
 

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/poofik33/db-technopark/internal/models"
 	"github.com/poofik33/db-technopark/internal/post"
 	"github.com/poofik33/db-technopark/internal/tools"
@@ -51,8 +52,8 @@ func (pr *PostRepository) InsertInto(posts []*models.Post) error {
 
 func (pr *PostRepository) GetCountByForumSlug(slug string) (uint64, error) {
 	var count uint64
-	if err := pr.db.QueryRow("SELECT count(*) from posts "+
-		"JOIN forum as f (posts.forum = f.id) WHERE f.slug = $1", slug).
+	if err := pr.db.QueryRow("SELECT count(*) from posts AS p "+
+		"JOIN forums as f ON (p.forum = f.id) WHERE f.slug = $1", slug).
 		Scan(&count); err != nil {
 		return 0, err
 	}
@@ -63,8 +64,10 @@ func (pr *PostRepository) GetCountByForumSlug(slug string) (uint64, error) {
 func (pr *PostRepository) GetByID(id uint64) (*models.Post, error) {
 	p := &models.Post{}
 	if err := pr.db.QueryRow(
-		"SELECT id, author, forum, thread, message, created, isEdited, "+
-			"coalesce(path[array_length(path, 1) - 1], 0) WHERE id = $1", id).
+		"SELECT p.id, u.nickname, f.slug, p.thread, p.message, p.created, p.isEdited, "+
+			"coalesce(path[array_length(path, 1) - 1], 0) FROM posts AS p "+
+			"JOIN users AS u ON (u.id = p.author) "+
+			"JOIN forums AS f ON (f.id = p.forum) WHERE p.id = $1", id).
 		Scan(&p.ID, &p.Author, &p.Forum, &p.ThreadID, &p.Message,
 			&p.CreationDate, &p.IsEdited, &p.ParentID); err != nil {
 		if err == sql.ErrNoRows {
@@ -87,62 +90,118 @@ func (pr *PostRepository) Update(post *models.Post) error {
 
 func (pr *PostRepository) GetByThread(id uint64, limit uint64,
 	since uint64, sort string, desc bool) ([]*models.Post, error) {
-	queryString := "SELECT id, author, forum, thread, created, message, isEdited, thread, " +
-		"coalesce(path[array_length(path, 1) - 1], 0) " +
-		"FROM posts WHERE "
+	queryStringFmt := "SELECT p.id, u.nickname, f.slug, p.thread, p.created, p.message, p.isEdited, " +
+		"coalesce(p.path[array_length(p.path, 1) - 1], 0) " +
+		"FROM posts AS p " +
+		"JOIN users AS u ON (u.id = p.author) " +
+		"JOIN forums AS f ON (f.id = p.forum) " +
+		"WHERE %s %s"
 
-	if sort == "parent_tree" {
-		queryString += "path[1] IN (SELECT id FROM posts WHERE thread = $1 AND " +
+	var whereString string
+	var orderString string
+
+	switch sort {
+	case "flat", "":
+		whereString = "p.thread = $1"
+		if since != 0 {
+			if desc {
+				whereString += " AND p.id < $2"
+			} else {
+				whereString += " AND p.id > $2"
+			}
+		}
+		orderString = "ORDER BY "
+		if sort == "flat" {
+			orderString += "p.created"
+			if desc {
+				orderString += " DESC"
+			}
+			orderString += ", p.id"
+			if desc {
+				orderString += " DESC"
+			}
+		} else {
+			orderString += "p.id"
+			if desc {
+				orderString += " DESC"
+			}
+		}
+		if limit != 0 {
+			if since != 0 {
+				orderString += " LIMIT $3"
+			} else {
+				orderString += " LIMIT $2"
+			}
+		}
+	case "tree":
+		whereString = "p.thread = $1"
+		if since != 0 {
+			if desc {
+				whereString += " AND coalesce(path < (select path FROM posts where id = $2), true)"
+			} else {
+				whereString += " AND coalesce(path > (select path FROM posts where id = $2), true)"
+			}
+		}
+		orderString = "ORDER BY p.path[1]"
+		if desc {
+			orderString += " DESC"
+		}
+		orderString += ", p.path[2:]"
+		if desc {
+			orderString += " DESC"
+		}
+		orderString += " NULLS FIRST"
+		if limit != 0 {
+			if since != 0 {
+				orderString += " LIMIT $3"
+			} else {
+				orderString += " LIMIT $2"
+			}
+		}
+	case "parent_tree":
+		whereString = "p.path[1] IN (SELECT path[1] FROM posts WHERE thread = $1 AND " +
 			"array_length(path, 1) = 1"
 		if since != 0 {
-			queryString += " AND id > $2"
-			if limit != 0 {
-				queryString += " LIMIT $3"
-			}
-		} else {
-			if limit != 0 {
-				queryString += " LIMIT $2"
+			if desc {
+				whereString += " AND id < (SELECT path[1] FROM posts WHERE id = $2)"
+			} else {
+				whereString += " AND id > (SELECT path[1] FROM posts WHERE id = $2)"
 			}
 		}
 
-	} else {
-		queryString += "thread = $1"
-		if since != 0 {
-			queryString += " AND id > $2"
+		whereString += " ORDER BY id"
+		if desc {
+			whereString += " DESC"
 		}
-	}
 
-	orderString := " ORDER BY "
-	if sort == "flat" {
-		orderString += "created"
-	} else {
-		orderString += "path[1]"
-	}
-	if desc {
-		orderString += " DESC"
-	}
-
-	if sort != "parent_tree" && limit != 0 {
-		if since != 0 {
-			queryString += " LIMIT $3"
-		} else {
-			queryString += " LIMIT $2"
+		if limit != 0 {
+			if since != 0 {
+				whereString += " LIMIT $3"
+			} else {
+				whereString += " LIMIT $2"
+			}
 		}
+		whereString += ")"
+		orderString = "ORDER BY p.path[1]"
+		if desc {
+			orderString += " DESC"
+		}
+		orderString += ", p.path[2:] NULLS FIRST"
 	}
 
 	rows := &sql.Rows{}
 	var err error
 	if since != 0 {
 		if limit != 0 {
-			rows, err = pr.db.Query(queryString+orderString, id, since, limit)
+			rows, err = pr.db.Query(fmt.Sprintf(queryStringFmt, whereString, orderString), id, since, limit)
 		} else {
-			rows, err = pr.db.Query(queryString+orderString, id, since)
+			rows, err = pr.db.Query(fmt.Sprintf(queryStringFmt, whereString, orderString), id, since)
 		}
 	} else {
 		if limit != 0 {
-			rows, err = pr.db.Query(queryString+orderString, id, limit)
+			rows, err = pr.db.Query(fmt.Sprintf(queryStringFmt, whereString, orderString), id, limit)
 		} else {
-			rows, err = pr.db.Query(queryString+orderString, id)
+			rows, err = pr.db.Query(fmt.Sprintf(queryStringFmt, whereString, orderString), id)
 		}
 	}
 

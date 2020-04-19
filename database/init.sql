@@ -16,7 +16,7 @@ CREATE TABLE forums (
     id      serial  primary key,
     slug    varchar(80) unique not null,
     admin   integer not null,
-    title   varchar(80) not null,
+    title   varchar(120) not null,
     FOREIGN KEY (admin) REFERENCES "users" (id)
 );
 
@@ -27,7 +27,7 @@ CREATE TABLE threads (
     forum   integer not null,
     message text not null,
     slug    varchar(80) unique,
-    title   varchar(80) not null,
+    title   varchar(120) not null,
     FOREIGN KEY (forum)     REFERENCES  "forums"    (id),
     FOREIGN KEY (author)    REFERENCES  "users"     (id)
 );
