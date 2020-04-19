@@ -6,10 +6,20 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/poofik33/db-technopark/database"
+	forum_delivery "github.com/poofik33/db-technopark/internal/forum/delivery"
+	forum_repository "github.com/poofik33/db-technopark/internal/forum/repository"
+	forum_usecase "github.com/poofik33/db-technopark/internal/forum/usecase"
 	"github.com/poofik33/db-technopark/internal/middlewares"
-	"github.com/poofik33/db-technopark/internal/user/delivery"
-	"github.com/poofik33/db-technopark/internal/user/repository"
-	"github.com/poofik33/db-technopark/internal/user/usecase"
+	post_delivery "github.com/poofik33/db-technopark/internal/post/delivery"
+	post_repository "github.com/poofik33/db-technopark/internal/post/repository"
+	post_usecase "github.com/poofik33/db-technopark/internal/post/usecase"
+	thread_delivery "github.com/poofik33/db-technopark/internal/thread/delivery"
+	thread_repository "github.com/poofik33/db-technopark/internal/thread/repository"
+	thread_usecase "github.com/poofik33/db-technopark/internal/thread/usecase"
+	user_delivery "github.com/poofik33/db-technopark/internal/user/delivery"
+	user_repository "github.com/poofik33/db-technopark/internal/user/repository"
+	user_usecase "github.com/poofik33/db-technopark/internal/user/usecase"
+	vote_repository "github.com/poofik33/db-technopark/internal/vote/repository"
 	"github.com/sirupsen/logrus"
 
 	_ "github.com/lib/pq"
@@ -31,7 +41,6 @@ func main() {
 		"forums_user",
 		"difficult_password")
 
-
 	dbConn, err := sql.Open("postgres", connString)
 	if err != nil {
 		logrus.Fatal(fmt.Errorf("database open connection err %s", err))
@@ -48,9 +57,21 @@ func main() {
 	e.Use(middlewares.PanicMiddleware)
 	e.Validator = &CustomValidator{validator: validator.New()}
 
-	ur := repository.NewUserRepository(dbConn)
-	uc := usecase.NewUserUsecase(ur)
-	_ = delivery.NewUserHandler(e, uc)
+	ur := user_repository.NewUserRepository(dbConn)
+	fr := forum_repository.NewForumRepository(dbConn)
+	tr := thread_repository.NewThreadRepository(dbConn)
+	vr := vote_repository.NewVoteRepository(dbConn)
+	pr := post_repository.NewPostRepository(dbConn)
+
+	uUC := user_usecase.NewUserUsecase(ur)
+	fUC := forum_usecase.NewForumUsecase(fr, ur, pr, tr)
+	tUC := thread_usecase.NewThreadUsecase(tr, ur, fr, pr, vr)
+	pUC := post_usecase.NewPostUsecase(pr, fr, vr, tr, ur)
+
+	_ = user_delivery.NewUserHandler(e, uUC)
+	_ = forum_delivery.NewForumHandler(e, fUC, tUC)
+	_ = thread_delivery.NewThreadHandler(e, tUC)
+	_ = post_delivery.NewPostHandler(e, pUC)
 
 	e.Start(":5000")
 }

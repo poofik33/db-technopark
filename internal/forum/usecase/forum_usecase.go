@@ -16,10 +16,12 @@ type ForumUsecase struct {
 	userRepo   user.Repository
 }
 
-func NewForumUsecase(fr forum.Repository, ur user.Repository) forum.Usecase {
+func NewForumUsecase(fr forum.Repository, ur user.Repository, pr post.Repository, tr thread.Repository) forum.Usecase {
 	return &ForumUsecase{
-		forumRepo: fr,
-		userRepo:  ur,
+		forumRepo:  fr,
+		postRepo:   pr,
+		threadRepo: tr,
+		userRepo:   ur,
 	}
 }
 
@@ -33,11 +35,16 @@ func (fu *ForumUsecase) AddForum(forum *models.Forum) (*models.Forum, error) {
 		return returnForum, tools.ErrExistWithSlug
 	}
 
-	if _, err := fu.userRepo.GetByNickname(forum.AdminNickname); err != nil {
+	u, err := fu.userRepo.GetByNickname(forum.AdminNickname)
+	if err != nil {
 		if err == tools.ErrDoesntExists {
 			return nil, tools.ErrUserDoesntExists
 		}
+
+		return nil, err
 	}
+
+	forum.AdminNickname = u.Nickname
 
 	if err = fu.forumRepo.InsertInto(forum); err != nil {
 		return nil, err
@@ -49,11 +56,10 @@ func (fu *ForumUsecase) AddForum(forum *models.Forum) (*models.Forum, error) {
 func (fu *ForumUsecase) GetForumBySlug(slug string) (*models.Forum, error) {
 	returnForum, err := fu.forumRepo.GetBySlug(slug)
 	if err != nil {
+		if err == tools.ErrDoesntExists {
+			return nil, tools.ErrForumDoesntExists
+		}
 		return nil, err
-	}
-
-	if returnForum == nil {
-		return nil, tools.ErrDoesntExists
 	}
 
 	postCount, err := fu.postRepo.GetCountByForumSlug(slug)
@@ -74,6 +80,8 @@ func (fu *ForumUsecase) GetForumThreads(
 		if err == tools.ErrDoesntExists {
 			return nil, tools.ErrForumDoesntExists
 		}
+
+		return nil, err
 	}
 
 	returnThreads, err := fu.threadRepo.GetByForumSlug(slug, limit, since, desc)

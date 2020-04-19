@@ -74,6 +74,16 @@ func (uu *UserUsecase) Update(nickname string, user *models.User) error {
 	}
 
 	user.SetNickname(nickname)
+	if user.Email == "" {
+		user.Email = u.Email
+	}
+	if user.Fullname == "" {
+		user.Fullname = u.Fullname
+	}
+	if user.About == "" {
+		user.About = u.About
+	}
+
 	if err = uu.ur.Update(user); err != nil {
 		return err
 	}

@@ -31,7 +31,8 @@ func NewThreadUsecase(tr thread.Repository, ur user.Repository,
 }
 
 func (tUC *ThreadUsecase) AddThread(t *models.Thread) (*models.Thread, error) {
-	if _, err := tUC.forumRepo.GetBySlug(t.Forum); err != nil {
+	f, err := tUC.forumRepo.GetBySlug(t.Forum)
+	if err != nil {
 		if err == tools.ErrDoesntExists {
 			return nil, tools.ErrForumDoesntExists
 		}
@@ -39,7 +40,8 @@ func (tUC *ThreadUsecase) AddThread(t *models.Thread) (*models.Thread, error) {
 		return nil, err
 	}
 
-	if _, err := tUC.userRepo.GetByNickname(t.Author); err != nil {
+	u, err := tUC.userRepo.GetByNickname(t.Author)
+	if err != nil {
 		if err == tools.ErrDoesntExists {
 			return nil, tools.ErrUserDoesntExists
 		}
@@ -54,6 +56,9 @@ func (tUC *ThreadUsecase) AddThread(t *models.Thread) (*models.Thread, error) {
 			return returnThread, tools.ErrExistWithSlug
 		}
 	}
+
+	t.Forum = f.Slug
+	t.Author = u.Nickname
 
 	if err := tUC.threadRepo.InsertInto(t); err != nil {
 		return nil, err
@@ -79,7 +84,6 @@ func (tUC *ThreadUsecase) CreatePosts(slugOrID string, posts []*models.Post) ([]
 
 		return nil, err
 	}
-
 	for _, p := range posts {
 		if p.ParentID != 0 {
 			if _, err := tUC.postRepo.GetByID(p.ParentID); err != nil {
@@ -91,7 +95,6 @@ func (tUC *ThreadUsecase) CreatePosts(slugOrID string, posts []*models.Post) ([]
 		p.ThreadID = t.ID
 		p.Forum = t.Forum
 	}
-
 	if err = tUC.postRepo.InsertInto(posts); err != nil {
 		return nil, err
 	}

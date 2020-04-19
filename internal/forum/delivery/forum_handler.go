@@ -23,7 +23,7 @@ func NewForumHandler(e *echo.Echo, fUC forum.Usecase, tUC thread.Usecase) *Forum
 	}
 
 	e.POST("/forum/create", fh.CreateForum())
-	e.POST("/forum/:slug/create", fh.CreateThread())
+	e.POST("/forum/:fslug/create", fh.CreateThread())
 	e.GET("/forum/:slug/details", fh.GetForumDetails())
 	e.GET("/forum/:slug/threads", fh.GetForumThreads())
 	e.GET("/forum/:slug/users", fh.GetForumUsers())
@@ -75,10 +75,10 @@ func (fh *ForumHandler) CreateForum() echo.HandlerFunc {
 func (fh *ForumHandler) CreateThread() echo.HandlerFunc {
 	type CreateThreadRequest struct {
 		Author  string    `json:"author" binding:"require"`
-		Created time.Time `json:"created"`
+		Created time.Time `json:"created" binding:"omitempty"`
 		Message string    `json:"message" binding:"require"`
 		Title   string    `json:"title" binding:"require"`
-		Slug    string    `json:"slug"`
+		Slug    string    `json:"slug" binding:"omitempty"`
 	}
 	return func(c echo.Context) error {
 		req := &CreateThreadRequest{}
@@ -94,7 +94,7 @@ func (fh *ForumHandler) CreateThread() echo.HandlerFunc {
 			})
 		}
 
-		slug := c.Param("slug")
+		slug := c.Param("fslug")
 
 		if req.Created.IsZero() {
 			req.Created = time.Now()
@@ -125,6 +125,9 @@ func (fh *ForumHandler) CreateThread() echo.HandlerFunc {
 				return c.JSON(http.StatusConflict, returnThread)
 			}
 
+			return c.JSON(http.StatusBadRequest, tools.ErrorResponce{
+				Message: err.Error(),
+			})
 		}
 
 		return c.JSON(http.StatusCreated, returnThread)
@@ -137,7 +140,7 @@ func (fh *ForumHandler) GetForumDetails() echo.HandlerFunc {
 
 		returnForum, err := fh.forumUC.GetForumBySlug(slug)
 		if err != nil {
-			if err == tools.ErrDoesntExists {
+			if err == tools.ErrForumDoesntExists {
 				return c.JSON(http.StatusNotFound, tools.ErrorResponce{
 					Message: err.Error(),
 				})
@@ -155,17 +158,21 @@ func (fh *ForumHandler) GetForumDetails() echo.HandlerFunc {
 func (fh *ForumHandler) GetForumThreads() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		slug := c.Param("slug")
+		limit := uint64(0)
+		var err error
 
-		limit, err := strconv.ParseUint(c.QueryParam("limit"), 10, 64)
-		since := c.QueryParam("since")
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, tools.ErrorResponce{
-				Message: err.Error(),
-			})
+		if l := c.QueryParam("limit"); l != "" {
+			limit, err = strconv.ParseUint(l, 10, 64)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, tools.ErrorResponce{
+					Message: err.Error(),
+				})
+			}
 		}
+		since := c.QueryParam("since")
 
 		desc := false
-		if descVal := c.QueryParam("desc"); descVal != "" {
+		if descVal := c.QueryParam("desc"); descVal == "true" {
 			desc = true
 		}
 

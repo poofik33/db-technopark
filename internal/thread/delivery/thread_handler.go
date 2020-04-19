@@ -1,6 +1,7 @@
 package delivery
 
 import (
+	"encoding/json"
 	"github.com/labstack/echo/v4"
 	"github.com/poofik33/db-technopark/internal/models"
 	"github.com/poofik33/db-technopark/internal/thread"
@@ -30,18 +31,18 @@ func NewThreadHandler(e *echo.Echo, tUC thread.Usecase) *ThreadHandler {
 
 func (th *ThreadHandler) CreatePost() echo.HandlerFunc {
 	type createPostReq struct {
-		Author  string `json:"author" binding:"require"`
-		Message string `json:"message" binding:"require"`
-		Parent  uint64 `json:"parent" binding:"require"`
+		Author  string `json:"author" binding:"required"`
+		Message string `json:"message" binding:"required"`
+		Parent  uint64 `json:"parent" binding:"required"`
 	}
+
 	return func(c echo.Context) error {
 		req := []*createPostReq{}
-		if err := c.Bind(req); err != nil {
+		if err := json.NewDecoder(c.Request().Body).Decode(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, tools.ErrorResponce{
 				Message: err.Error(),
 			})
 		}
-
 		slugOrID := c.Param("slug_or_id")
 
 		posts := make([]*models.Post, 0, len(req))

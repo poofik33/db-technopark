@@ -89,7 +89,7 @@ func (uh *UserHandler) GetProfile() echo.HandlerFunc {
 
 func (uh *UserHandler) UpdateProfile() echo.HandlerFunc {
 	type updateUserRequset struct {
-		Email    string `json:"email" binding:"required" validate:"email"`
+		Email    string `json:"email" binding:"required"`
 		Fullname string `json:"fullname" binding:"required"`
 		About    string `json:"about"`
 	}
@@ -98,11 +98,6 @@ func (uh *UserHandler) UpdateProfile() echo.HandlerFunc {
 		req := &updateUserRequset{}
 		if err := c.Bind(req); err != nil {
 			logrus.Error(fmt.Errorf("Binding error %s", err))
-			return c.JSON(http.StatusBadRequest, tools.ErrorResponce{err.Error()})
-		}
-
-		if err := c.Validate(req); err != nil {
-			logrus.Error(fmt.Errorf("Validate error %s", err))
 			return c.JSON(http.StatusBadRequest, tools.ErrorResponce{err.Error()})
 		}
 

@@ -5,7 +5,6 @@ import (
 	"github.com/poofik33/db-technopark/internal/models"
 	"github.com/poofik33/db-technopark/internal/post"
 	"github.com/poofik33/db-technopark/internal/tools"
-	"golang.org/x/net/context"
 )
 
 type PostRepository struct {
@@ -19,21 +18,31 @@ func NewPostRepository(db *sql.DB) post.Repository {
 }
 
 func (pr *PostRepository) InsertInto(posts []*models.Post) error {
-	var ctx context.Context
-	tx, err := pr.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	tx, err := pr.db.Begin()
 	if err != nil {
 		return err
 	}
 
 	defer tx.Rollback()
 	for _, p := range posts {
+		var forumID, userID uint64
+		if err := pr.db.QueryRow("SELECT id FROM forums "+
+			"WHERE lower(slug)=lower($1)", p.Forum).Scan(&forumID); err != nil {
+			return err
+		}
+
+		if err := pr.db.QueryRow("SELECT id FROM users "+
+			"WHERE lower(nickname)=lower($1)", p.Author).Scan(&userID); err != nil {
+			return err
+		}
+
 		if err := tx.QueryRow(
 			"INSERT INTO posts (id, author, forum, created, message, path, thread) "+
 				"VALUES ((select nextval('posts_id_seq')::integer), $1, $2, $3, $4, "+
 				"(SELECT path FROM posts WHERE id = $5) || (select currval('posts_id_seq')::integer), $6) "+
-				"RETURNING id", p.Author, p.Forum, p.CreationDate,
+				"RETURNING id", userID, forumID, p.CreationDate,
 			p.Message, p.ParentID, p.ThreadID).Scan(&p.ID); err != nil {
-			return nil
+			return err
 		}
 	}
 
@@ -42,7 +51,8 @@ func (pr *PostRepository) InsertInto(posts []*models.Post) error {
 
 func (pr *PostRepository) GetCountByForumSlug(slug string) (uint64, error) {
 	var count uint64
-	if err := pr.db.QueryRow("SELECT count(*) from posts WHERE forum = $1", slug).
+	if err := pr.db.QueryRow("SELECT count(*) from posts "+
+		"JOIN forum as f (posts.forum = f.id) WHERE f.slug = $1", slug).
 		Scan(&count); err != nil {
 		return 0, err
 	}
