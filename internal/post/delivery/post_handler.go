@@ -19,8 +19,8 @@ func NewPostHandler(e *echo.Echo, pUC post.Usecase) *PostHandler {
 		postUsecase: pUC,
 	}
 
-	e.GET("post/:id/details", ph.GetPostDetails())
-	e.POST("post/:id/details", ph.UpdatePost())
+	e.GET("/api/post/:id/details", ph.GetPostDetails())
+	e.POST("/api/post/:id/details", ph.UpdatePost())
 
 	return ph
 }

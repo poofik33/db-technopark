@@ -20,11 +20,11 @@ func NewThreadHandler(e *echo.Echo, tUC thread.Usecase) *ThreadHandler {
 		threadUsecase: tUC,
 	}
 
-	e.POST("thread/:slug_or_id/create", th.CreatePost())
-	e.POST("thread/:slug_or_id/details", th.UpdateThread())
-	e.POST("thread/:slug_or_id/vote", th.ThreadVote())
-	e.GET("thread/:slug_or_id/details", th.GetThreadDetails())
-	e.GET("thread/:slug_or_id/posts", th.GetThreadPosts())
+	e.POST("/api/thread/:slug_or_id/create", th.CreatePost())
+	e.POST("/api/thread/:slug_or_id/details", th.UpdateThread())
+	e.POST("/api/thread/:slug_or_id/vote", th.ThreadVote())
+	e.GET("/api/thread/:slug_or_id/details", th.GetThreadDetails())
+	e.GET("/api/thread/:slug_or_id/posts", th.GetThreadPosts())
 
 	return th
 }

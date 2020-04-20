@@ -22,11 +22,11 @@ func NewForumHandler(e *echo.Echo, fUC forum.Usecase, tUC thread.Usecase) *Forum
 		threadUC: tUC,
 	}
 
-	e.POST("/forum/create", fh.CreateForum())
-	e.POST("/forum/:fslug/create", fh.CreateThread())
-	e.GET("/forum/:slug/details", fh.GetForumDetails())
-	e.GET("/forum/:slug/threads", fh.GetForumThreads())
-	e.GET("/forum/:slug/users", fh.GetForumUsers())
+	e.POST("/api/forum/create", fh.CreateForum())
+	e.POST("/api/forum/:fslug/create", fh.CreateThread())
+	e.GET("/api/forum/:slug/details", fh.GetForumDetails())
+	e.GET("/api/forum/:slug/threads", fh.GetForumThreads())
+	e.GET("/api/forum/:slug/users", fh.GetForumUsers())
 
 	return fh
 }

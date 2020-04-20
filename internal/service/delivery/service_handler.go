@@ -16,8 +16,8 @@ func NewServiceHandler(e *echo.Echo, sUC service.Usecase) *ServiceHandler {
 		serviceUsecase: sUC,
 	}
 
-	e.GET("/service/status", sh.GetStatus())
-	e.POST("/service/clear", sh.Clear())
+	e.GET("/api/service/status", sh.GetStatus())
+	e.POST("/api/service/clear", sh.Clear())
 
 	return sh
 }

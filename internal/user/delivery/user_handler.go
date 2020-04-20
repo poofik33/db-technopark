@@ -19,9 +19,9 @@ func NewUserHandler(e *echo.Echo, uuc user.Usecase) *UserHandler {
 		userUC: uuc,
 	}
 
-	e.POST("/user/:nickname/create", uh.CreateUser())
-	e.GET("/user/:nickname/profile", uh.GetProfile())
-	e.POST("/user/:nickname/profile", uh.UpdateProfile())
+	e.POST("/api/user/:nickname/create", uh.CreateUser())
+	e.GET("/api/user/:nickname/profile", uh.GetProfile())
+	e.POST("/api/user/:nickname/profile", uh.UpdateProfile())
 
 	return uh
 }
