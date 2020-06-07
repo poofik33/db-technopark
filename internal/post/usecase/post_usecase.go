@@ -64,11 +64,6 @@ func (pUC *PostUsecase) GetPostDetails(id uint64, related []string) (*models.Pos
 				return nil, err
 			}
 
-			threadVotes, err := pUC.voteRepo.GetThreadVotes(t.ID)
-			if err != nil {
-				return nil, err
-			}
-			t.Votes = threadVotes
 			returnPost.Thread = t
 		case "forum":
 			f, err := pUC.forumRepo.GetBySlug(p.Forum)
@@ -80,8 +75,8 @@ func (pUC *PostUsecase) GetPostDetails(id uint64, related []string) (*models.Pos
 				return nil, err
 			}
 
-			postCount, err := pUC.postRepo.GetCountByForumSlug(f.Slug)
-			threadCount, err := pUC.threadRepo.GetCountByForumSlug(f.Slug)
+			postCount, err := pUC.postRepo.GetCountByForumID(f.ID)
+			threadCount, err := pUC.threadRepo.GetCountByForumID(f.ID)
 			if err != nil {
 				return nil, err
 			}

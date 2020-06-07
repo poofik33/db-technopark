@@ -1,9 +1,9 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/go-playground/validator/v10"
+	"github.com/jackc/pgx"
 	"github.com/labstack/echo/v4"
 	"github.com/poofik33/db-technopark/database"
 	forum_delivery "github.com/poofik33/db-technopark/internal/forum/delivery"
@@ -37,18 +37,16 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 }
 
 func main() {
-	connString := fmt.Sprintf("host=%s port=%d dbname=%s user=%s sslmode=disable password=%s",
-		"localhost",
-		5432,
-		"forums",
-		"forums_user",
-		"difficult_password")
-
-	dbConn, err := sql.Open("postgres", connString)
-	if err != nil {
-		logrus.Fatal(fmt.Errorf("database open connection err %s", err))
-		return
-	}
+	dbConn, err := pgx.NewConnPool(pgx.ConnPoolConfig{
+		ConnConfig: pgx.ConnConfig{
+			Host:     "localhost",
+			Port:     5432,
+			Database: "forums",
+			User:     "forums_user",
+			Password: "difficult_password",
+		},
+		MaxConnections: 10000,
+	})
 
 	if err = database.InitDB(dbConn); err != nil {
 		logrus.Fatal(fmt.Errorf("database init err %s", err))
@@ -58,6 +56,8 @@ func main() {
 	e := echo.New()
 
 	e.Use(middlewares.PanicMiddleware)
+	_ = middlewares.NewMetricsController(e)
+
 	e.Validator = &CustomValidator{validator: validator.New()}
 
 	ur := user_repository.NewUserRepository(dbConn)

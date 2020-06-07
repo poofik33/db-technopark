@@ -1,15 +1,15 @@
 package repostitory
 
 import (
-	"database/sql"
+	"github.com/jackc/pgx"
 	"github.com/poofik33/db-technopark/internal/service"
 )
 
 type ServiceRepository struct {
-	db *sql.DB
+	db *pgx.ConnPool
 }
 
-func NewServiceRepository(db *sql.DB) service.Repository {
+func NewServiceRepository(db *pgx.ConnPool) service.Repository {
 	return &ServiceRepository{
 		db: db,
 	}
@@ -48,35 +48,35 @@ func (sr *ServiceRepository) GetCountUser() (uint64, error) {
 }
 
 func (sr *ServiceRepository) DeleteAllForum() error {
-	if _, err := sr.db.Exec("DELETE FROM forums"); err != nil {
+	if _, err := sr.db.Exec("TRUNCATE TABLE forums CASCADE"); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (sr *ServiceRepository) DeleteAllPost() error {
-	if _, err := sr.db.Exec("DELETE FROM posts"); err != nil {
+	if _, err := sr.db.Exec("TRUNCATE TABLE posts CASCADE"); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (sr *ServiceRepository) DeleteAllThread() error {
-	if _, err := sr.db.Exec("DELETE FROM threads"); err != nil {
+	if _, err := sr.db.Exec("TRUNCATE TABLE threads CASCADE"); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (sr *ServiceRepository) DeleteAllUser() error {
-	if _, err := sr.db.Exec("DELETE FROM users"); err != nil {
+	if _, err := sr.db.Exec("TRUNCATE TABLE users CASCADE"); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (sr *ServiceRepository) DeleteAllVotes() error {
-	if _, err := sr.db.Exec("DELETE FROM votes"); err != nil {
+	if _, err := sr.db.Exec("TRUNCATE TABLE votes CASCADE"); err != nil {
 		return err
 	}
 	return nil

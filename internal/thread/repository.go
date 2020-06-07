@@ -9,6 +9,6 @@ type Repository interface {
 	GetByID(uint64) (*models.Thread, error)
 	GetBySlug(string) (*models.Thread, error)
 	GetByForumSlug(string, uint64, string, bool) ([]*models.Thread, error)
-	GetCountByForumSlug(string) (uint64, error)
+	GetCountByForumID(uint64) (uint64, error)
 	Update(*models.Thread) error
 }

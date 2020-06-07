@@ -59,6 +59,8 @@ func (tUC *ThreadUsecase) AddThread(t *models.Thread) (*models.Thread, error) {
 
 	t.Forum = f.Slug
 	t.Author = u.Nickname
+	t.AuthorID = u.ID
+	t.ForumID = f.ID
 
 	if err := tUC.threadRepo.InsertInto(t); err != nil {
 		return nil, err
@@ -84,29 +86,25 @@ func (tUC *ThreadUsecase) CreatePosts(slugOrID string, posts []*models.Post) ([]
 
 		return nil, err
 	}
+
+	_, err = tUC.userRepo.CheckNicknames(posts)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tUC.postRepo.CheckParentPosts(posts, t.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(posts) == 0 {
+		return []*models.Post{}, nil
+	}
+
 	for _, p := range posts {
-		if p.ParentID != 0 {
-			pp, err := tUC.postRepo.GetByID(p.ParentID)
-			if err != nil {
-				if err == tools.ErrDoesntExists {
-					return nil, tools.ErrParentPostDoesntExists
-				}
-			}
-			if pp.ThreadID != t.ID {
-				return nil, tools.ErrPostIncorrectThreadID
-			}
-		}
-
-		if _, err := tUC.userRepo.GetByNickname(p.Author); err != nil {
-			if err == tools.ErrDoesntExists {
-				return nil, tools.ErrUserDoesntExists
-			}
-
-			return nil, err
-		}
-
 		p.ThreadID = t.ID
 		p.Forum = t.Forum
+		p.ForumID = t.ForumID
 	}
 	if err = tUC.postRepo.InsertInto(posts); err != nil {
 		return nil, err
@@ -130,11 +128,6 @@ func (tUC *ThreadUsecase) GetBySlugOrID(slugOrID string) (*models.Thread, error)
 			return nil, tools.ErrThreadDoesntExists
 		}
 
-		return nil, err
-	}
-
-	t.Votes, err = tUC.voteRepo.GetThreadVotes(t.ID)
-	if err != nil {
 		return nil, err
 	}
 
@@ -196,7 +189,7 @@ func (tUC *ThreadUsecase) Vote(slugOrID string, v *models.Vote) (*models.Thread,
 		return nil, err
 	}
 
-	_, err = tUC.userRepo.GetByNickname(v.Nickname)
+	u, err := tUC.userRepo.GetByNickname(v.Nickname)
 	if err != nil {
 		if err == tools.ErrDoesntExists {
 			return nil, tools.ErrUserDoesntExists
@@ -204,6 +197,7 @@ func (tUC *ThreadUsecase) Vote(slugOrID string, v *models.Vote) (*models.Thread,
 	}
 
 	v.ThreadID = t.ID
+	v.UserID = u.ID
 	if err = tUC.voteRepo.InsertInto(v); err != nil {
 		return nil, err
 	}

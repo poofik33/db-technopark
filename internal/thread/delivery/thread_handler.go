@@ -66,13 +66,8 @@ func (th *ThreadHandler) CreatePost() echo.HandlerFunc {
 					Message: err.Error(),
 				})
 			}
-			if err == tools.ErrParentPostDoesntExists || err == tools.ErrPostIncorrectThreadID {
-				return c.JSON(http.StatusConflict, tools.ErrorResponce{
-					Message: err.Error(),
-				})
-			}
 
-			return c.JSON(http.StatusBadRequest, tools.ErrorResponce{
+			return c.JSON(http.StatusConflict, tools.ErrorResponce{
 				Message: err.Error(),
 			})
 		}

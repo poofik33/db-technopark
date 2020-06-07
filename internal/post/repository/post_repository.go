@@ -1,59 +1,59 @@
 package repository
 
 import (
-	"database/sql"
 	"fmt"
+	"github.com/jackc/pgx"
 	"github.com/poofik33/db-technopark/internal/models"
 	"github.com/poofik33/db-technopark/internal/post"
 	"github.com/poofik33/db-technopark/internal/tools"
+	"strconv"
 )
 
 type PostRepository struct {
-	db *sql.DB
+	db *pgx.ConnPool
 }
 
-func NewPostRepository(db *sql.DB) post.Repository {
+func NewPostRepository(db *pgx.ConnPool) post.Repository {
 	return &PostRepository{
 		db: db,
 	}
 }
 
 func (pr *PostRepository) InsertInto(posts []*models.Post) error {
-	tx, err := pr.db.Begin()
+	sqlRow := "INSERT INTO posts (author, forum, created, message, parent, thread) VALUES "
+
+	var val []interface{}
+	id := uint64(1)
+	for _, p := range posts {
+		sqlRow += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d),", id, id+1, id+2, id+3, id+4, id+5)
+		val = append(val, p.AuthorID, p.ForumID, p.CreationDate,
+			p.Message, p.ParentID, p.ThreadID)
+		id += 6
+	}
+	sqlRow = sqlRow[0 : len(sqlRow)-1]
+	sqlRow += " RETURNING id"
+	rows, err := pr.db.Query(sqlRow, val...)
 	if err != nil {
 		return err
 	}
 
-	defer tx.Rollback()
-	for _, p := range posts {
-		var forumID, userID uint64
-		if err := pr.db.QueryRow("SELECT id FROM forums "+
-			"WHERE lower(slug)=lower($1)", p.Forum).Scan(&forumID); err != nil {
+	defer rows.Close()
+
+	postIndex := 0
+	for rows.Next() {
+		if err := rows.Scan(&posts[postIndex].ID); err != nil {
 			return err
 		}
 
-		if err := pr.db.QueryRow("SELECT id FROM users "+
-			"WHERE lower(nickname)=lower($1)", p.Author).Scan(&userID); err != nil {
-			return err
-		}
-
-		if err := tx.QueryRow(
-			"INSERT INTO posts (id, author, forum, created, message, path, thread) "+
-				"VALUES ((select nextval('posts_id_seq')::integer), $1, $2, $3, $4, "+
-				"(SELECT path FROM posts WHERE id = $5) || (select currval('posts_id_seq')::integer), $6) "+
-				"RETURNING id", userID, forumID, p.CreationDate,
-			p.Message, p.ParentID, p.ThreadID).Scan(&p.ID); err != nil {
-			return err
-		}
+		postIndex++
 	}
 
-	return tx.Commit()
+	return nil
 }
 
-func (pr *PostRepository) GetCountByForumSlug(slug string) (uint64, error) {
+func (pr *PostRepository) GetCountByForumID(id uint64) (uint64, error) {
 	var count uint64
-	if err := pr.db.QueryRow("SELECT count(*) from posts AS p "+
-		"JOIN forums as f ON (p.forum = f.id) WHERE f.slug = $1", slug).
+	if err := pr.db.QueryRow("SELECT count(*) from posts WHERE forum = $1", id).
 		Scan(&count); err != nil {
 		return 0, err
 	}
@@ -70,7 +70,7 @@ func (pr *PostRepository) GetByID(id uint64) (*models.Post, error) {
 			"JOIN forums AS f ON (f.id = p.forum) WHERE p.id = $1", id).
 		Scan(&p.ID, &p.Author, &p.Forum, &p.ThreadID, &p.Message,
 			&p.CreationDate, &p.IsEdited, &p.ParentID); err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, tools.ErrDoesntExists
 		}
 		return nil, err
@@ -189,7 +189,7 @@ func (pr *PostRepository) GetByThread(id uint64, limit uint64,
 		orderString += ", p.path[2:] NULLS FIRST"
 	}
 
-	rows := &sql.Rows{}
+	rows := &pgx.Rows{}
 	var err error
 	if since != 0 {
 		if limit != 0 {
@@ -226,4 +226,37 @@ func (pr *PostRepository) GetByThread(id uint64, limit uint64,
 	}
 
 	return returnPosts, nil
+}
+
+func (pr *PostRepository) CheckParentPosts(posts []*models.Post, threadID uint64) (bool, error) {
+	parents := map[uint64]uint64{}
+	vals := []interface{}{threadID}
+
+	sqlRow := "SELECT count(*) FROM posts WHERE thread = $1 AND id in ("
+
+	i := 2
+	for _, p := range posts {
+		if p.ParentID > 0 {
+			sqlRow += "$" + strconv.Itoa(i) + ","
+			parents[p.ParentID] += 1
+			vals = append(vals, p.ParentID)
+			i++
+		}
+	}
+
+	if len(parents) == 0 {
+		return true, nil
+	}
+
+	sqlRow = sqlRow[0:len(sqlRow)-1] + ")"
+	var count int
+	if err := pr.db.QueryRow(sqlRow, vals...).Scan(&count); err != nil {
+		return false, err
+	}
+
+	if count != len(parents) {
+		return false, tools.ErrParentPostDoesntExists
+	}
+
+	return true, nil
 }

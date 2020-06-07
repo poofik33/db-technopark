@@ -1,27 +1,26 @@
 package repository
 
 import (
-	"database/sql"
 	"fmt"
+	"github.com/jackc/pgx"
 	"github.com/poofik33/db-technopark/internal/models"
 	"github.com/poofik33/db-technopark/internal/thread"
 	"github.com/poofik33/db-technopark/internal/tools"
 )
 
 type ThreadRepository struct {
-	db *sql.DB
+	db *pgx.ConnPool
 }
 
-func NewThreadRepository(db *sql.DB) thread.Repository {
+func NewThreadRepository(db *pgx.ConnPool) thread.Repository {
 	return &ThreadRepository{
 		db: db,
 	}
 }
 
-func (tr *ThreadRepository) GetCountByForumSlug(slug string) (uint64, error) {
+func (tr *ThreadRepository) GetCountByForumID(id uint64) (uint64, error) {
 	var count uint64
-	if err := tr.db.QueryRow("SELECT count(*) FROM threads "+
-		"JOIN forums as f ON (threads.forum = f.id) WHERE f.slug = $1", slug).
+	if err := tr.db.QueryRow("SELECT count(*) FROM threads WHERE forum = $1 ", id).
 		Scan(&count); err != nil {
 		return 0, err
 	}
@@ -30,21 +29,10 @@ func (tr *ThreadRepository) GetCountByForumSlug(slug string) (uint64, error) {
 }
 
 func (tr *ThreadRepository) InsertInto(t *models.Thread) error {
-	var forumID, UserID uint64
-	if err := tr.db.QueryRow("SELECT id FROM forums "+
-		"WHERE lower(slug)=lower($1)", t.Forum).Scan(&forumID); err != nil {
-		return err
-	}
-
-	if err := tr.db.QueryRow("SELECT id FROM users "+
-		"WHERE lower(nickname)=lower($1)", t.Author).Scan(&UserID); err != nil {
-		return err
-	}
-
 	if err := tr.db.QueryRow("INSERT INTO threads "+
 		"(slug, author, title, message, forum, created) "+
 		"VALUES (NULLIF ($1, ''), $2, $3, $4, $5, $6) RETURNING id",
-		t.Slug, UserID, t.Title, t.About, forumID, t.CreationDate).
+		t.Slug, t.AuthorID, t.Title, t.About, t.ForumID, t.CreationDate).
 		Scan(&t.ID); err != nil {
 		return err
 	}
@@ -54,12 +42,13 @@ func (tr *ThreadRepository) InsertInto(t *models.Thread) error {
 
 func (tr *ThreadRepository) GetBySlug(slug string) (*models.Thread, error) {
 	t := &models.Thread{}
-	if err := tr.db.QueryRow("SELECT t.id, u.nickname, t.created, f.slug, t.message, "+
-		"coalesce (t.slug, ''), t.title FROM threads AS t "+
+	if err := tr.db.QueryRow("SELECT t.id, u.nickname, t.created, t.forum, f.slug, t.message, "+
+		"coalesce (t.slug, ''), t.title, t.votes FROM threads AS t "+
 		"JOIN users AS u ON (t.author = u.id) "+
 		"JOIN forums AS f ON (f.id = t.forum) WHERE lower(t.slug) = lower($1)", slug).
-		Scan(&t.ID, &t.Author, &t.CreationDate, &t.Forum, &t.About, &t.Slug, &t.Title); err != nil {
-		if err == sql.ErrNoRows {
+		Scan(&t.ID, &t.Author, &t.CreationDate, &t.ForumID, &t.Forum, &t.About, &t.Slug,
+			&t.Title, &t.Votes); err != nil {
+		if err == pgx.ErrNoRows {
 			return nil, tools.ErrDoesntExists
 		}
 
@@ -71,12 +60,13 @@ func (tr *ThreadRepository) GetBySlug(slug string) (*models.Thread, error) {
 
 func (tr *ThreadRepository) GetByID(id uint64) (*models.Thread, error) {
 	t := &models.Thread{}
-	if err := tr.db.QueryRow("SELECT t.id, u.nickname, t.created, f.slug, t.message, "+
-		"coalesce (t.slug, ''), t.title FROM threads AS t "+
+	if err := tr.db.QueryRow("SELECT t.id, u.nickname, t.created, t.forum, f.slug, t.message, "+
+		"coalesce (t.slug, ''), t.title, t.votes FROM threads AS t "+
 		"JOIN users AS u ON (t.author = u.id) "+
 		"JOIN forums AS f ON (f.id = t.forum) WHERE t.id = $1", id).
-		Scan(&t.ID, &t.Author, &t.CreationDate, &t.Forum, &t.About, &t.Slug, &t.Title); err != nil {
-		if err == sql.ErrNoRows {
+		Scan(&t.ID, &t.Author, &t.CreationDate, &t.ForumID, &t.Forum, &t.About, &t.Slug,
+			&t.Title, &t.Votes); err != nil {
+		if err == pgx.ErrNoRows {
 			return nil, tools.ErrDoesntExists
 		}
 
@@ -91,7 +81,7 @@ func (tr *ThreadRepository) GetByForumSlug(
 	returnThreads := []*models.Thread{}
 
 	queryString := "SELECT t.id, u.nickname, t.created, f.slug, t.message, " +
-		"coalesce (t.slug, ''), t.title FROM threads AS t " +
+		"coalesce (t.slug, ''), t.title, t.votes FROM threads AS t " +
 		"JOIN users AS u ON (t.author = u.id) " +
 		"JOIN forums AS f ON (f.id = t.forum) WHERE lower(f.slug) = lower($1)"
 
@@ -105,7 +95,7 @@ func (tr *ThreadRepository) GetByForumSlug(
 		orderString += fmt.Sprintf(" LIMIT %d", limit)
 	}
 
-	var rows *sql.Rows
+	var rows *pgx.Rows
 	var err error
 
 	if since != "" {
@@ -127,7 +117,7 @@ func (tr *ThreadRepository) GetByForumSlug(
 
 	for rows.Next() {
 		t := &models.Thread{}
-		err = rows.Scan(&t.ID, &t.Author, &t.CreationDate, &t.Forum, &t.About, &t.Slug, &t.Title)
+		err = rows.Scan(&t.ID, &t.Author, &t.CreationDate, &t.Forum, &t.About, &t.Slug, &t.Title, &t.Votes)
 		if err != nil {
 			return nil, err
 		}

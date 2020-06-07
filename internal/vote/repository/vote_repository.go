@@ -1,16 +1,17 @@
 package repository
 
 import (
-	"database/sql"
+	"github.com/jackc/pgx"
+
 	"github.com/poofik33/db-technopark/internal/models"
 	"github.com/poofik33/db-technopark/internal/vote"
 )
 
 type VoteRepository struct {
-	db *sql.DB
+	db *pgx.ConnPool
 }
 
-func NewVoteRepository(db *sql.DB) vote.Repository {
+func NewVoteRepository(db *pgx.ConnPool) vote.Repository {
 	return &VoteRepository{
 		db: db,
 	}
@@ -18,8 +19,8 @@ func NewVoteRepository(db *sql.DB) vote.Repository {
 
 func (vr *VoteRepository) GetThreadVotes(id uint64) (int64, error) {
 	var votes int64
-	if err := vr.db.QueryRow("SELECT coalesce (sum(CASE WHEN vote THEN 1 WHEN NOT vote THEN -1 END), 0) "+
-		"FROM votes WHERE thread = $1", id).Scan(&votes); err != nil {
+	if err := vr.db.QueryRow("SELECT votes "+
+		"FROM threads WHERE id = $1", id).Scan(&votes); err != nil {
 		return 0, err
 	}
 
@@ -27,30 +28,24 @@ func (vr *VoteRepository) GetThreadVotes(id uint64) (int64, error) {
 }
 
 func (vr *VoteRepository) InsertInto(v *models.Vote) error {
-	userID := uint64(0)
-	if err := vr.db.QueryRow("SELECT id FROM users "+
-		"WHERE lower(nickname) = lower($1)", v.Nickname).Scan(&userID); err != nil {
-		return err
-	}
-
 	curVoteID := uint64(0)
 	err := vr.db.QueryRow("SELECT id FROM votes "+
-		"WHERE thread = $1 and author = $2", v.ThreadID, userID).Scan(&curVoteID)
-	if err != nil && err != sql.ErrNoRows {
+		"WHERE thread = $1 and author = $2", v.ThreadID, v.UserID).Scan(&curVoteID)
+	if err != nil && err != pgx.ErrNoRows {
 		return err
 	}
 
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		if _, err := vr.db.Exec("INSERT INTO votes (author, thread, vote) "+
-			"VALUES ($1, $2, CASE WHEN $3 = 1 THEN TRUE WHEN $3 = -1 THEN FALSE END)",
-			userID, v.ThreadID, v.Voice); err != nil {
+			"VALUES ($1, $2, $3)",
+			v.UserID, v.ThreadID, v.Voice); err != nil {
 			return err
 		}
 
 		return nil
 	}
 
-	if _, err = vr.db.Exec("UPDATE votes SET vote = (CASE WHEN $2 = 1 THEN TRUE WHEN $2 = -1 THEN FALSE END) "+
+	if _, err = vr.db.Exec("UPDATE votes SET vote = $2 "+
 		"WHERE id = $1", curVoteID, v.Voice); err != nil {
 		return err
 	}

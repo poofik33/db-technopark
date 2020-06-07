@@ -1,11 +1,11 @@
 package database
 
 import (
-	"database/sql"
+	"github.com/jackc/pgx"
 	"io/ioutil"
 )
 
-func InitDB(db *sql.DB) error {
+func InitDB(db *pgx.ConnPool) error {
 	bFile, err := ioutil.ReadFile("database/init.sql")
 	if err != nil {
 		return err

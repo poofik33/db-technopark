@@ -13,6 +13,8 @@ type Post struct {
 	Message      string    `json:"message"`
 	ParentID     uint64    `json:"parent"`
 	ThreadID     uint64    `json:"thread"`
+	ForumID      uint64    `json:"-"`
+	AuthorID     uint64    `json:"-"`
 }
 
 type PostFull struct {

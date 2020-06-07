@@ -1,18 +1,19 @@
 package repository
 
 import (
-	"database/sql"
 	"fmt"
+	"github.com/jackc/pgx"
 	"github.com/poofik33/db-technopark/internal/models"
 	"github.com/poofik33/db-technopark/internal/tools"
 	"github.com/poofik33/db-technopark/internal/user"
+	"strings"
 )
 
 type UserRepository struct {
-	db *sql.DB
+	db *pgx.ConnPool
 }
 
-func NewUserRepository(db *sql.DB) user.Repository {
+func NewUserRepository(db *pgx.ConnPool) user.Repository {
 	return &UserRepository{
 		db: db,
 	}
@@ -30,9 +31,10 @@ func (ur *UserRepository) InsertInto(user *models.User) error {
 func (ur *UserRepository) GetByNickname(nickname string) (*models.User, error) {
 	u := &models.User{}
 
-	if err := ur.db.QueryRow("SELECT nickname, email, fullname, about FROM users "+
-		"WHERE lower(nickname) = lower($1)", nickname).Scan(&u.Nickname, &u.Email, &u.Fullname, &u.About); err != nil {
-		if err == sql.ErrNoRows {
+	if err := ur.db.QueryRow("SELECT id, nickname, email, fullname, about FROM users "+
+		"WHERE lower(nickname) = lower($1)", nickname).Scan(&u.ID, &u.Nickname, &u.Email, &u.Fullname,
+		&u.About); err != nil {
+		if err == pgx.ErrNoRows {
 			return nil, tools.ErrDoesntExists
 		}
 		return nil, err
@@ -44,9 +46,10 @@ func (ur *UserRepository) GetByNickname(nickname string) (*models.User, error) {
 func (ur *UserRepository) GetByEmail(email string) (*models.User, error) {
 	u := &models.User{}
 
-	if err := ur.db.QueryRow("SELECT nickname, email, fullname, about FROM users "+
-		"WHERE lower(email) = lower($1)", email).Scan(&u.Nickname, &u.Email, &u.Fullname, &u.About); err != nil {
-		if err == sql.ErrNoRows {
+	if err := ur.db.QueryRow("SELECT id, nickname, email, fullname, about FROM users "+
+		"WHERE lower(email) = lower($1)", email).Scan(&u.ID, &u.Nickname, &u.Email, &u.Fullname,
+		&u.About); err != nil {
+		if err == pgx.ErrNoRows {
 			return nil, tools.ErrDoesntExists
 		}
 		return nil, err
@@ -69,7 +72,7 @@ func (ur *UserRepository) GetUsersByForum(
 	returnUsers := []*models.User{}
 
 	queryString := "SELECT u.nickname, u.email, u.fullname, u.about FROM users AS u " +
-		"WHERE u.id IN (SELECT uu.id FROM users AS uu " +
+		"WHERE u.id IN (SELECT distinct uu.id FROM users AS uu " +
 		"JOIN posts AS p ON (p.author = uu.id) " +
 		"JOIN forums AS f ON (f.id = p.forum) " +
 		"WHERE lower(f.slug) = lower($1) " +
@@ -86,7 +89,7 @@ func (ur *UserRepository) GetUsersByForum(
 		groupbyString += fmt.Sprintf(" LIMIT %d", limit)
 	}
 
-	var rows *sql.Rows
+	var rows *pgx.Rows
 	var err error
 	if since != "" {
 		if desc {
@@ -119,4 +122,34 @@ func (ur *UserRepository) GetUsersByForum(
 	}
 
 	return returnUsers, nil
+}
+
+func (ur *UserRepository) CheckNicknames(posts []*models.Post) (bool, error) {
+	rows, err := ur.db.Query("SELECT id, lower(nickname) FROM users")
+	if err != nil {
+		return false, err
+	}
+
+	defer rows.Close()
+
+	nicknames := make(map[string]uint64)
+	for rows.Next() {
+		n := ""
+		var id uint64
+		if err := rows.Scan(&id, &n); err != nil {
+			return false, err
+		}
+
+		nicknames[n] = id
+	}
+
+	for _, p := range posts {
+		id := nicknames[strings.ToLower(p.Author)]
+		if id == 0 {
+			return false, tools.ErrUserDoesntExists
+		}
+		p.AuthorID = id
+	}
+
+	return true, nil
 }

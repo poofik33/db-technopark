@@ -45,6 +45,7 @@ func (fu *ForumUsecase) AddForum(forum *models.Forum) (*models.Forum, error) {
 	}
 
 	forum.AdminNickname = u.Nickname
+	forum.AdminID = u.ID
 
 	if err = fu.forumRepo.InsertInto(forum); err != nil {
 		return nil, err
@@ -62,8 +63,8 @@ func (fu *ForumUsecase) GetForumBySlug(slug string) (*models.Forum, error) {
 		return nil, err
 	}
 
-	postCount, err := fu.postRepo.GetCountByForumSlug(slug)
-	threadCount, err := fu.threadRepo.GetCountByForumSlug(slug)
+	postCount, err := fu.postRepo.GetCountByForumID(returnForum.ID)
+	threadCount, err := fu.threadRepo.GetCountByForumID(returnForum.ID)
 	if err != nil {
 		return nil, err
 	}
