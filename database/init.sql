@@ -1,8 +1,21 @@
 DROP TABLE IF EXISTS votes;
 DROP TABLE IF EXISTS posts;
 DROP TABLE IF EXISTS threads;
+DROP TABLE IF EXISTS forums_users;
 DROP TABLE IF EXISTS forums;
 DROP TABLE IF EXISTS users;
+
+DROP FUNCTION IF EXISTS add_votes_to_count;
+DROP FUNCTION IF EXISTS update_vote_in_count;
+DROP FUNCTION IF EXISTS add_post_path;
+DROP FUNCTION IF EXISTS add_forum_user;
+DROP FUNCTION IF EXISTS add_forum_user_thread;
+
+DROP TRIGGER IF EXISTS upd_votes_count_update ON votes;
+DROP TRIGGER IF EXISTS upd_votes_count_insert ON votes;
+DROP TRIGGER IF EXISTS add_post_path ON posts;
+DROP TRIGGER IF EXISTS add_forum_post_user ON posts;
+DROP TRIGGER IF EXISTS add_forum_thread_user ON threads;
 
 CREATE TABLE users (
     id          serial  primary key,
@@ -17,7 +30,18 @@ CREATE TABLE forums (
     slug    varchar(80) unique not null,
     admin   integer not null,
     title   varchar(120) not null,
+    threads integer default 0,
+    posts   integer default 0,
     FOREIGN KEY (admin) REFERENCES "users" (id)
+);
+
+CREATE TABLE forums_users (
+    id      serial primary key,
+    user_id   integer not null,
+    forum_id  integer not null,
+    FOREIGN KEY (user_id) REFERENCES  "users" (id),
+    FOREIGN KEY (forum_id) REFERENCES "forums" (id),
+    CONSTRAINT unq_forums_users UNIQUE (forum_id, user_id)
 );
 
 CREATE TABLE threads (
@@ -37,7 +61,7 @@ CREATE TABLE posts (
     id          serial not null primary key,
     author      integer not null,
     forum       integer not null,
-    created     timestamp (6) WITH TIME ZONE not null,
+    created     timestamp (6) WITH TIME ZONE not null default current_timestamp,
     message     text not null,
     isEdited    boolean default false,
     path        integer[] not null,
@@ -93,8 +117,13 @@ EXECUTE PROCEDURE add_votes_to_count();
 
 CREATE OR REPLACE FUNCTION add_post_path() RETURNS TRIGGER AS
 $add_post_path$
+DECLARE found_id integer;
 BEGIN
     new.path = (SELECT path FROM posts WHERE id = new.parent) || new.id;
+
+    UPDATE forums
+    SET posts = posts + 1
+    WHERE id = new.forum;
 
     RETURN new;
 END;
@@ -106,6 +135,28 @@ CREATE TRIGGER add_post_path
     FOR EACH ROW
 EXECUTE PROCEDURE add_post_path();
 
+CREATE OR REPLACE FUNCTION add_forum_user_thread() RETURNS TRIGGER AS
+$add_forum_user_thread$
+DECLARE found_id integer;
+BEGIN
+    INSERT INTO forums_users (user_id, forum_id)
+    VALUES (new.author, new.forum)
+    ON CONFLICT DO NOTHING;
+
+    UPDATE forums
+    SET threads = threads + 1
+    WHERE id = new.forum;
+
+    RETURN new;
+END;
+$add_forum_user_thread$ LANGUAGE plpgsql;
+
+CREATE TRIGGER add_forum_thread_user
+    AFTER INSERT
+    ON threads
+    FOR EACH ROW
+EXECUTE PROCEDURE add_forum_user_thread();
+
 CREATE INDEX idx_forums_users ON forums (admin);
 CREATE INDEX idx_threads_forums ON threads (forum, created);
 CREATE INDEX idx_threads_users ON threads (author);
@@ -116,6 +167,7 @@ CREATE INDEX idx_posts_threads_array ON posts (thread, (array_length(path, 1)));
 CREATE INDEX idx_posts_forum ON posts (forum);
 CREATE INDEX idx_votes_uesrs ON votes (author);
 CREATE INDEX idx_votes_thread ON votes (thread);
+CREATE INDEX idx_users_of_forums ON forums_users (forum_id, user_id);
 
 CREATE INDEX idx_forums_slug ON forums (lower(slug));
 CREATE INDEX idx_threads_slug ON threads (lower(slug));

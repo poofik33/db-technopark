@@ -8,7 +8,6 @@ import (
 	"github.com/poofik33/db-technopark/internal/tools"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 type ThreadHandler struct {
@@ -46,14 +45,12 @@ func (th *ThreadHandler) CreatePost() echo.HandlerFunc {
 		slugOrID := c.Param("slug_or_id")
 
 		posts := make([]*models.Post, 0, len(req))
-		createDate := time.Now()
 		for _, r := range req {
 			post := &models.Post{
-				Author:       r.Author,
-				Message:      r.Message,
-				ParentID:     r.Parent,
-				CreationDate: createDate,
-				IsEdited:     false,
+				Author:   r.Author,
+				Message:  r.Message,
+				ParentID: r.Parent,
+				IsEdited: false,
 			}
 
 			posts = append(posts, post)

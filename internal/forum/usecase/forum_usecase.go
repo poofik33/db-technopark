@@ -63,15 +63,6 @@ func (fu *ForumUsecase) GetForumBySlug(slug string) (*models.Forum, error) {
 		return nil, err
 	}
 
-	postCount, err := fu.postRepo.GetCountByForumID(returnForum.ID)
-	threadCount, err := fu.threadRepo.GetCountByForumID(returnForum.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	returnForum.PostsCount = postCount
-	returnForum.ThreadsCount = threadCount
-
 	return returnForum, nil
 }
 
@@ -95,13 +86,14 @@ func (fu *ForumUsecase) GetForumThreads(
 
 func (fu *ForumUsecase) GetForumUsers(
 	slug string, limit uint64, since string, desc bool) ([]*models.User, error) {
-	if _, err := fu.forumRepo.GetBySlug(slug); err != nil {
+	f, err := fu.forumRepo.GetBySlug(slug)
+	if err != nil {
 		if err == tools.ErrDoesntExists {
 			return nil, tools.ErrForumDoesntExists
 		}
 	}
 
-	returnUsers, err := fu.userRepo.GetUsersByForum(slug, limit, since, desc)
+	returnUsers, err := fu.userRepo.GetUsersByForum(f.ID, limit, since, desc)
 	if err != nil {
 		return nil, err
 	}

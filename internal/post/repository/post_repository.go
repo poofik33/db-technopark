@@ -20,35 +20,48 @@ func NewPostRepository(db *pgx.ConnPool) post.Repository {
 }
 
 func (pr *PostRepository) InsertInto(posts []*models.Post) error {
-	sqlRow := "INSERT INTO posts (author, forum, created, message, parent, thread) VALUES "
+	sqlRow := "INSERT INTO posts (author, forum, message, parent, thread) VALUES "
+	//var val []interface{}
+	//id := uint64(1)
 
-	var val []interface{}
-	id := uint64(1)
 	for _, p := range posts {
-		sqlRow += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d),", id, id+1, id+2, id+3, id+4, id+5)
-		val = append(val, p.AuthorID, p.ForumID, p.CreationDate,
-			p.Message, p.ParentID, p.ThreadID)
-		id += 6
+		sqlRow += fmt.Sprintf("(%d, %d, '%s', %d, %d),",
+			p.AuthorID, p.ForumID, p.Message, p.ParentID, p.ThreadID)
+		_, err := pr.db.Exec("INSERT INTO forums_users (user_id, forum_id) VALUES "+
+			"($1, $2) ON CONFLICT DO NOTHING", p.AuthorID, p.ForumID)
+		if err != nil {
+			return err
+		}
+		//val = append(val, p.AuthorID, p.ForumID, p.CreationDate,
+		//	p.Message, p.ParentID, p.ThreadID)
+		//id += 6
 	}
 	sqlRow = sqlRow[0 : len(sqlRow)-1]
-	sqlRow += " RETURNING id"
-	rows, err := pr.db.Query(sqlRow, val...)
+	sqlRow += " RETURNING id, created"
+
+	tx, err := pr.db.Begin()
+	if err != nil {
+		return err
+	}
+	rows, err := tx.Query(sqlRow)
 	if err != nil {
 		return err
 	}
 
-	defer rows.Close()
+	defer func() {
+		rows.Close()
+	}()
 
 	postIndex := 0
 	for rows.Next() {
-		if err := rows.Scan(&posts[postIndex].ID); err != nil {
+		if err := rows.Scan(&posts[postIndex].ID, &posts[postIndex].CreationDate); err != nil {
 			return err
 		}
 
 		postIndex++
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 func (pr *PostRepository) GetCountByForumID(id uint64) (uint64, error) {

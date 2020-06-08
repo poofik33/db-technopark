@@ -75,14 +75,6 @@ func (pUC *PostUsecase) GetPostDetails(id uint64, related []string) (*models.Pos
 				return nil, err
 			}
 
-			postCount, err := pUC.postRepo.GetCountByForumID(f.ID)
-			threadCount, err := pUC.threadRepo.GetCountByForumID(f.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			f.ThreadsCount = threadCount
-			f.PostsCount = postCount
 			returnPost.Forum = f
 		}
 	}

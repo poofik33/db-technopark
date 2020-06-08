@@ -5,6 +5,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx"
 	"github.com/labstack/echo/v4"
+	_ "github.com/lib/pq"
 	"github.com/poofik33/db-technopark/database"
 	forum_delivery "github.com/poofik33/db-technopark/internal/forum/delivery"
 	forum_repository "github.com/poofik33/db-technopark/internal/forum/repository"
@@ -24,8 +25,6 @@ import (
 	user_usecase "github.com/poofik33/db-technopark/internal/user/usecase"
 	vote_repository "github.com/poofik33/db-technopark/internal/vote/repository"
 	"github.com/sirupsen/logrus"
-
-	_ "github.com/lib/pq"
 )
 
 type CustomValidator struct {
@@ -47,6 +46,9 @@ func main() {
 		},
 		MaxConnections: 10000,
 	})
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	if err = database.InitDB(dbConn); err != nil {
 		logrus.Fatal(fmt.Errorf("database init err %s", err))

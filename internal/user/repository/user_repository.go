@@ -68,18 +68,12 @@ func (ur *UserRepository) Update(user *models.User) error {
 }
 
 func (ur *UserRepository) GetUsersByForum(
-	slug string, limit uint64, since string, desc bool) ([]*models.User, error) {
+	id uint64, limit uint64, since string, desc bool) ([]*models.User, error) {
 	returnUsers := []*models.User{}
 
-	queryString := "SELECT u.nickname, u.email, u.fullname, u.about FROM users AS u " +
-		"WHERE u.id IN (SELECT distinct uu.id FROM users AS uu " +
-		"JOIN posts AS p ON (p.author = uu.id) " +
-		"JOIN forums AS f ON (f.id = p.forum) " +
-		"WHERE lower(f.slug) = lower($1) " +
-		"UNION SELECT uuu.id FROM users as uuu " +
-		"JOIN threads AS t ON (t.author = uuu.id) " +
-		"JOIN forums AS ff ON (ff.id = t.forum) " +
-		"WHERE lower(ff.slug) = lower($1))"
+	queryString := "SELECT u.nickname, u.email, u.fullname, u.about FROM forums_users fu " +
+		"JOIN users u ON (fu.user_id = u.id) " +
+		"WHERE fu.forum_id = $1"
 	groupbyString := " ORDER BY lower(u.nickname)"
 	if desc {
 		groupbyString += " DESC"
@@ -97,9 +91,9 @@ func (ur *UserRepository) GetUsersByForum(
 		} else {
 			queryString += " AND lower(u.nickname) > lower($2)"
 		}
-		rows, err = ur.db.Query(queryString+groupbyString, slug, since)
+		rows, err = ur.db.Query(queryString+groupbyString, id, since)
 	} else {
-		rows, err = ur.db.Query(queryString+groupbyString, slug)
+		rows, err = ur.db.Query(queryString+groupbyString, id)
 	}
 	if err != nil {
 		//if err == sql.ErrNoRows {

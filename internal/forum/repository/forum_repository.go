@@ -28,10 +28,11 @@ func (fr *ForumRepository) InsertInto(forum *models.Forum) error {
 
 func (fr *ForumRepository) GetBySlug(slug string) (*models.Forum, error) {
 	returnForum := &models.Forum{}
-	if err := fr.db.QueryRow("SELECT f.id, f.slug, u.nickname, f.title FROM forums as f "+
+	if err := fr.db.QueryRow("SELECT f.id, f.slug, u.nickname, f.title, f.threads, f.posts "+
+		"FROM forums as f "+
 		"JOIN users as u ON (u.id = f.admin) "+
 		"WHERE lower(slug) = lower($1)", slug).Scan(&returnForum.ID, &returnForum.Slug, &returnForum.AdminNickname,
-		&returnForum.Title); err != nil {
+		&returnForum.Title, &returnForum.ThreadsCount, &returnForum.PostsCount); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, tools.ErrDoesntExists
 		}
